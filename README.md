@@ -27,6 +27,7 @@
 - `\l` 显示所有数据库列表
 - `\c 数据库名称` 切换到数据库
 - `\q` 退出控制台
+- `\du` 查看当前的用户和对应权限的列表
 
 ```sql
 【模板】
@@ -257,6 +258,57 @@ pg_dump -U 用户名 -F t -f /路径/文件名.sql 数据库名
 
 
 
+
+## 用户操作
+
+- **创建用户：**
+
+    ```sql
+    CREATE USER '用户名' WITH PASSWORD '密码'
+    ```
+
+    
+
+- **修改密码**
+
+    ```sql
+    ALTER USER '用户名' WITH PASSWORD '密码'
+    ```
+
+    
+
+- **数据库授权，赋予指定账户指定数据库和表权限**
+
+    ```sql
+    -- 注意，这时候用户只是有数据库权限而没有表权限
+    GRANT ALL PRIVILEGES ON DATABASE '数据库名' TO '用户名'
+    
+    -- 然后需要将所有表的读写权限赋予该用户
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO '用户名'
+    ```
+
+    
+
+- **移除指定用户数据库和表的所有权限**
+
+    ```sql
+    REVOKE ALL PRIVILEGES ON DATABASE '数据库名' FROM '用户名'
+    
+    -- 然后移除所有表的读写权
+    REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO '用户名'
+    ```
+
+    
+
+- **删除用户**
+
+    比如移除权限后才能删除！
+
+    ```sql
+    DROP USER '用户名'
+    ```
+
+    
 
 
 
