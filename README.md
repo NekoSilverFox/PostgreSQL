@@ -122,6 +122,97 @@ DELETE 		test WHERE NAME='cat';  --报错
 
 
 
+## Schema
+
+PostgreSQL 模式（Schema）可以看作是一个表的集合。一个 Schema 可以包含**视图、索引、数据类型、函数和操作符**。**相同的对象名称可以被用于不同模式中而不会冲突，**例如在同一数据库下 Schema1 和 Schema2 都可以包含同名的表。
+
+使用 Schema 的优势：
+
+- 允许多个用户使用一个数据库而不会相互干扰
+- 将数据库对象组织成逻辑组以便更容易的管理
+- 第三方应用的对象可以放在独立模式中，这样它们就不会与其他对象的名称发生冲突
+
+
+
+Schema 类似于操作系统底层的目录，但是**不能嵌套**！
+
+```sql
+-- 创建 Schema
+CREATE SCHEMA mySchema;
+
+-- 在 Schema 中创建表
+CREATE TABLE mySchema.student(
+	id 			int						NOT NULL,
+	name 		VARCHAR(255)	NOT NULL
+);
+
+-- 删除 Schema
+DROP SCHEMA mySchema; -- 【重要】报错！如果 Schema 中不为空的话，不能删除！
+DROP SCHEMA mySchema CASCADE; -- 【重要】加上 `CASCADE` 可以连同 Schema 中所有的对象一起删除
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
