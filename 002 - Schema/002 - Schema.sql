@@ -10,4 +10,3 @@ CREATE TABLE mySchema.student(
 -- 删除 Schema
 DROP SCHEMA mySchema; -- 【重要】报错！如果 Schema 中不为空的话，不能删除！
 DROP SCHEMA mySchema CASCADE; -- 【重要】加上 `CASCADE` 可以连同 Schema 中所有的对象一起删除
-

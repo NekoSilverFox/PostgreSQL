@@ -310,9 +310,24 @@ pg_dump -U 用户名 -F t -f /路径/文件名.sql 数据库名
 
     
 
+## 角色管理
 
 
 
+## 自定义函数
+
+**自定义函数语法：**
+
+```sql
+CREATE FUNCTION					-- 声明创建函数
+	add(integer, integer)		-- 定义函数名称，参数类型
+
+RETURNS integer					-- 定义返回值类型
+	AS 'select $1 + $2'			-- 实现函数体
+
+LANGUAGE SQL					-- 用以实现函数的语言名字
+RETURNS NULL ON NULL INPUT;		-- 定义参数为 NULL 时处理情况
+```
 
 
 
