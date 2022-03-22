@@ -407,7 +407,7 @@ DROP INDEX IX_索引名
 
 
 
-### 事务隔离级别
+### 事务隔离级别（MySQL）
 
 | 问题       | 说明                                               |
 | ---------- | -------------------------------------------------- |
@@ -523,7 +523,259 @@ DROP INDEX IX_索引名
     |                                                              |                                                              |
     |                                                              |                                                              |
 
-    
+
+
+
+
+## 事务（经过测试后的结果）
+
+| 隔离界别          | 脏读 | 不可重复读 | 幻读 |
+| ----------------- | ---- | ---------- | ---- |
+| `serializable`    | -    | -          | -    |
+| `repeatable read` | -    | -          | -    |
+| `read commited`   | -    | +          | +    |
+| `read uncommited` | -    | +          | +    |
+
+---
+
+
+
+
+
+### READ UNCOMMITTED
+
+- 脏读、不可重复读
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read uncommitted* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read uncommitted* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==[无]脏读==<br />1000 |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==不可重复读==<br />2000 |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+- 更改丢失
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read uncommitted* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read uncommitted* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `UPDATE tb_ports SET price=3000 WHERE nameport='baku';`<br /><br />>>> <br />**窗口等待中** |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `COMMIT;`                                                    |                                                              |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==[无]丢失的更改==<br />3000 |
+
+
+
+
+
+- **幻读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read uncommitted* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read uncommitted* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `INSERT INTO tb_Ports(Country, NamePort, Price, LevelID)`<br />` VALUES('Azerbaijan', 'baku2', 2222, 3);` |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>>==幻读==<br />2222 |                                                              |
+    | `DELETE FROM tb_ports WHERE nameport='baku2';`               |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+
+
+
+---
+
+
+
+
+
+### READ COMMITTED
+
+- 脏读、不可重复读
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read committed* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read committed* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==[无]脏读==<br />1000 |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==不可重复读==<br />2000 |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+
+
+- 更改丢失
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read committed* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read committed* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `UPDATE tb_ports SET price=3000 WHERE nameport='baku';`<br /><br />>>> <br />**窗口等待中** |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `COMMIT;`                                                    |                                                              |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==[无]丢失的更改==<br />3000 |
+
+
+
+
+
+- **幻读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read committed* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*read committed* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `INSERT INTO tb_Ports(Country, NamePort, Price, LevelID)`<br />` VALUES('Azerbaijan', 'baku2', 2222, 3);` |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>>==幻读==<br />2222 |                                                              |
+    | `DELETE FROM tb_ports WHERE nameport='baku2';`               |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+---
+
+
+
+### REPEATABLE READ
+
+- 脏读、不可重复读
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*repeatable read* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*repeatable read* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==[无]脏读==<br />1000 |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==可重复读==<br />1000 |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+
+
+- 更改丢失
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*repeatable read* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*repeatable read* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `UPDATE tb_ports SET price=3000 WHERE nameport='baku';`<br /><br />>>> <br />**窗口等待中** |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | >>><br />ERROR:  could not serialize access due to concurrent update |                                                              |
+    | `ROLLBACK;`                                                  |                                                              |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==丢失的更改==<br />2000 |
+
+
+
+
+
+- **幻读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*repeatable read* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*repeatable read* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `INSERT INTO tb_Ports(Country, NamePort, Price, LevelID)`<br />` VALUES('Azerbaijan', 'baku2', 2222, 3);` |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>>==[无] 幻读==<br />(0 rows) |                                                              |
+    | `DELETE FROM tb_ports WHERE nameport='baku2';`               |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+---
+
+
+
+### SERIALIZABLE
+
+- **脏读、不可重复读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*serializable* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*serializable* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==[无]脏读==<br />1000 |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==可重复读==<br />1000 |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
+
+
+
+- **更改丢失**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*serializable* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*serializable* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />1000 |                                                              |
+    |                                                              | `UPDATE tb_ports SET price=2000 WHERE nameport='baku';`      |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>><br />2000 |
+    | `UPDATE tb_ports SET price=3000 WHERE nameport='baku';`<br /><br />>>> <br />**窗口等待中** |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | >>><br />ERROR:  could not serialize access due to concurrent update |                                                              |
+    | `ROLLBACK;`                                                  |                                                              |
+    |                                                              | `SELECT price FROM tb_ports WHERE nameport='baku';`<br /><br />>>>==丢失的更改==<br />2000 |
+
+
+
+
+
+
+
+- **幻读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*serializable* |                                                              |
+    |                                                              | `BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;`<br />`SHOW TRANSACTION_ISOLATION;`<br /><br />>>><br />*serializable* |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `INSERT INTO tb_Ports(Country, NamePort, Price, LevelID)`<br />` VALUES('Azerbaijan', 'baku2', 2222, 3);` |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>><br />(0 rows) |                                                              |
+    |                                                              | `COMMIT;`                                                    |
+    | `SELECT price FROM tb_ports WHERE nameport='baku2';`<br /><br />>>>==[无] 幻读==<br />(0 rows) |                                                              |
+    | `DELETE FROM tb_ports WHERE nameport='baku2';`               |                                                              |
+    | `COMMIT;`                                                    |                                                              |
+
+
 
 
 
