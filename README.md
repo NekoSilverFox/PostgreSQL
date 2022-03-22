@@ -385,7 +385,145 @@ DROP INDEX IX_索引名
 
 
 
+## 视图
 
+视图是一张**虚拟表**，它表示一张表的部分数据或多张表的综合数据，其结构和数据是建立在对表的查询基础上
+
+视图在操作上和数据表没有什么区别，但两者的差异是其本质是不同数据表是实际存储记录的地方，然而视图并不保存任何记录。
+
+相同的数据表，根据不同用户的不同需求，可以创建不同的视图（不同的查询语句）
+
+
+
+**作用：**
+
+- 简单化，屏蔽底层的查询
+- 安全性，比如与另一个公司进行数据交互，屏蔽敏感数据
+- 逻辑数据独立性，上层业务在调用时，不需要考虑数据表的改变
+
+
+
+## 事务
+
+
+
+### 事务隔离级别
+
+| 问题       | 说明                                               |
+| ---------- | -------------------------------------------------- |
+| 可重复读   | 不管执行多少次查询的都是相同的结果                 |
+| 不可重复读 | 如果别的事务更新了数据，则查询到的是更新之后的数据 |
+| 幻读       | 明明有数据但是读读不到，插插不进去                 |
+| 脏读       | 读到了别的事务还没 commit 的数据                   |
+
+**说明及特点：**
+
+| 隔离界别          | 说明                                                         | 脏读 | 不可重复读 | 幻读 |
+| ----------------- | ------------------------------------------------------------ | ---- | ---------- | ---- |
+| `serializable`    | 一个时间段只能有一个事物，安全最高，但性能最差               | -    | -          | -    |
+| `repeatable read` | （默认）可重复读 \| 幻读，在同一个事务中执行相同的 SQL，不管执行多少次查询的都是相同的结果。看不到别的事务提交的数据 | -    | -          | +    |
+| `read commited`   | 不可重复读 \| 幻读；可以读到提交后的数据。能看到别的事务提交的数据 | -    | +          | +    |
+| `read uncommited` | 不可重复读 \| 幻读 \| 脏读，脏读是读到别的事务没有提交的数据 | +    | +          | +    |
+
+
+
+测试：
+
+- **serializable**
+
+|                                                              |                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `set session transaction isolation level serializable`       | 设置事务隔离级别                                             |
+|                                                              | `start transaction`<br />`update user set money=100 where name='张三'` |
+| `start transaction`<br />`update user set money=99 where name='张三'`<br /><br />>>> **在转圈，因为设置了模式为 `serializable`，某一时刻只能有一个事物执行。等待右侧试执行完成才能开始** |                                                              |
+|                                                              | `committ;` 提交事务，money 变成 100                          |
+| 事务可以（开始）执行，上面两句被执行                         |                                                              |
+| `commit;` 提交事务，money 变成 99                            |                                                              |
+
+
+
+- **repeatable read**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `set session transaction isolation level repeatable read`    | `set session transaction isolation level repeatable read`    |
+    | `start transaction`<br />`select money from user where name='张三'`<br />>>><br />99 |                                                              |
+    |                                                              | `start transaction`<br />`update user set money=100 where name='张三'`<br />`committ;` |
+    |                                                              | `select money from user where name='张三'`<br />>>><br />100 |
+    | `select money from user where name='张三'`<br />>>><br />99  |                                                              |
+    | `commit`                                                     |                                                              |
+    | `select money from user where name='张三'`<br />>>><br />100 |                                                              |
+
+    
+
+- **幻读**
+
+    案例现象：读读不到，插插不进去
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `set session transaction isolation level repeatable read`    | `set session transaction isolation level repeatable read`    |
+    | `start transaction`<br />`select money from user where name='王五'`<br />>>><br />无结果 |                                                              |
+    |                                                              | `start transaction`<br />`insert user(name, money) values('王五', 1)`<br />`commit` |
+    | `select money from user where name='王五'`<br />>>><br />无结果 |                                                              |
+    | `insert user(name, money) values('王五', 1)`<br />>>><br />报错，王五已经存在 |                                                              |
+
+    
+
+- `read committed`
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `set session transaction isolation level read committed`     | `set session transaction isolation level read committed`     |
+    | `start transaction`<br />`select money from user where name='张三'`<br />>>><br />100 |                                                              |
+    |                                                              | `start transaction`<br />`update user set money=101 where name='张三'`<br />`commit;` |
+    | `select money from user where name='张三'`<br />>>><br />101 |                                                              |
+
+
+
+- **幻读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `set session transaction isolation level read committed`     | `set session transaction isolation level read committed`     |
+    | `start transaction`<br />`select money from user where name='王五'`<br />>>><br />无结果 |                                                              |
+    |                                                              | `start transaction`<br />`select money from user where name='王五'`<br />>>><br />无结果 |
+    |                                                              | `insert user(name, money) values('王五', 1)`<br />>>><br />陷入等待 |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+
+
+
+- read UNcommitted **脏读**
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `set session transaction isolation level read UNcommitted`   | `set session transaction isolation level read committed`     |
+    | `start transaction`<br />`select money from user where name='王五'`<br />>>><br />1 |                                                              |
+    |                                                              | `start transaction`<br />`update user set money=101 where name='张三'`<br /> |
+    | `select money from user where name='王五'`<br />>>>**脏读 \| 不可重复读（右边还没 commit）**<br />101 |                                                              |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+
+
+
+- read UNcommitted 幻读
+
+    | 窗口 1                                                       | 窗口 2                                                       |
+    | ------------------------------------------------------------ | ------------------------------------------------------------ |
+    | `set session transaction isolation level read UNcommitted`   | `set session transaction isolation level read committed`     |
+    | `start transaction`<br />`select * from user`<br />>>><br />张三 101<br />李四 1<br />王五 101 |                                                              |
+    |                                                              | `start transaction`<br />`insert user(name, money) values('赵六', 1)`<br /> |
+    | `select * from user`<br />>>><br />张三 101<br />李四 1<br />王五 101<br />赵六 1 |                                                              |
+    | `delete user where name='赵六'`<br />>>> <br />陷入等待，因为右侧还没提交。明明有赵六这条数据但是删不掉，产生幻读 |                                                              |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+    |                                                              |                                                              |
+
+    
 
 
 
